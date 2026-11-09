@@ -1,99 +1,158 @@
 # TensorGraphLab
 
-统一的 tensor network 图包：`@graph` 描述结构，`coloring` 绑定实际 TensorMap，`evaluate` 调用 TensorKit / TensorOperations 做收缩。
+Define reusable tensor networks with TensorKit-style index notation, bind numerical tensors, and evaluate contractions.
+
+```text
+@graph  →  graph structure  →  coloring  →  evaluate
+```
+
+A graph stores nodes, port directions, and connections—not tensor data. Reuse the same graph with different tensors, and delegate numerical contractions to TensorKit / TensorOperations using either `tensor` or `planar` execution.
+
+## Installation
+
+Requires Julia 1.10 or later. The package is not yet registered in Julia General; install it directly from GitHub:
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/Chenqitrg/TensorGraphLab.jl")
+```
+
+For a local checkout, start `julia --project=.` in the repository directory and run `using Pkg; Pkg.instantiate()`. No separate local TensorNodeLab, TensorGraphCore, or TensorGraphNotation packages are needed.
+
+## Your first contraction
+
+Define a graph connecting two nodes, then check that its evaluation agrees with matrix multiplication:
 
 ```julia
 using TensorKit, TensorGraphLab
 
 a = randn(ComplexF64, ℂ^2 ← ℂ^3)
 b = randn(ComplexF64, ℂ^3 ← ℂ^4)
-A, B = TensorNode(:A,a), TensorNode(:B,b)
+A, B = TensorNode(:A, a), TensorNode(:B, b)
+
 @graph G[left; right] := A[left; bond] * B[bond; right]
-bindings = coloring(G,A=>a,B=>b)
-result = evaluate(G,bindings)
-@assert result ≈ a*b
+bindings = coloring(G, A => a, B => b)
+result = evaluate(G, bindings)
+
+@assert result ≈ a * b
 ```
 
-默认只导出日常入口：`TensorNode`、`TensorGraph`、`@graph`、`@coloring`、`coloring`、`evaluate`、`showgraph` 和 `substitute`。其他接口通过 `TensorGraphLab.` 访问或显式导入；`numout`、`numin`、`permute` 等沿用 TensorKit 的入口。
+- `TensorNode(:A, a)` extracts a color label, output/input ranks, and formal dual directions. It retains no numerical data, dimensions, or sectors from `a`.
+- In `@graph`, outputs appear before the semicolon and inputs after it. The repeated index `bond` connects the nodes; `left` and `right` form the graph boundary.
+- `coloring` binds basic nodes to actual `AbstractTensorMap` objects and checks their ports and connected spaces.
+- `evaluate` returns the contraction result, using the upstream `@tensor` macro by default.
 
-## 五个可直接运行的例子
+Only eight everyday entry points are exported:
 
-只需要本仓库。打开任一例子，用 VS Code 的 **Julia: Execute File in REPL** 运行整个文件。每个文件按自身路径激活本包环境，不需要其他本地包、切换工作目录或按顺序运行。首次运行会下载和预编译 TensorKit / TensorOperations 等依赖。
-
-| 例子 | 内容 |
-|---|---|
-| [01_matrix_chain.jl](examples/01_matrix_chain.jl) | 从图到实际矩阵乘法 |
-| [02_nested_transfer.jl](examples/02_nested_transfer.jl) | 嵌套四腿 transfer；修改数据后复用 |
-| [03_views_and_replacement.jl](examples/03_views_and_replacement.jl) | adjoint、transpose、同时替换 |
-| [04_closed_graph.jl](examples/04_closed_graph.jl) | scalar 与零腿 TensorMap 的输出区别 |
-| [05_planar_symmetry.jl](examples/05_planar_symmetry.jl) | Fibonacci 对称性下的 planar 收缩 |
-
-## 节点与图结构
-
-`TensorNode(:A, tensor)` 提取 color、输入输出腿数与形式对偶方向，不保留数值 tensor、维数或 sector。也可以显式定义：
-
-```julia
-A = TensorNode(:A, 2, 2, (false, false, true, true))
+```text
+TensorNode, TensorGraph
+@graph, @coloring
+coloring, evaluate, showgraph, substitute
 ```
 
-`TensorNode{M,N}` 保留 M 个输出和 N 个输入；方向按输出腿、输入腿排列，采用全部腿视为输出的约定。`adjoint`、`permute`、`transpose` 返回带父节点的结构视图；`parent` 取直接父节点，`TensorGraphLab.base_node` 取基本节点。实数空间也保留形式箭头。
+Access other interfaces through `TensorGraphLab.` or import them explicitly with `using TensorGraphLab: ...`. Rank and transformation functions such as `numout`, `numin`, and `permute` remain available through TensorKit.
 
-`@graph` 支持已有节点、节点视图和子图的乘积，不支持线性组合或数值系数。分号两侧必须匹配对象的输入输出腿数。内部指标出现两次并连接相反的形式箭头，外部指标出现一次。
+## Reuse, nesting, and display
 
-`TensorGraphLab.expand(G; depth=nothing)` 默认完全展开，`depth=0` 保留直接子图；每次子图出现的私有指标独立。`substitute(G,A=>B,B=>A)` 同时替换基本 color，保留外层视图。`G'` 对整图取 adjoint。
-
-图的 `==` 忽略内部指标名字、嵌套分组与 occurrence 书写顺序，保留 color、端口顺序、连线及输出意图；不判断范畴恒等式或 braid 等价。执行仍使用原有的 occurrence 顺序。
-
-`showgraph(G; name=:G, depth=nothing)` 打印展开的 `@graph` 表达式，`TensorGraphLab.graph_expr` 返回对应 `Expr`。默认对象显示为简短摘要。有限展开深度下的 `subgraph1` 等名字需要另行绑定。`TensorGraphLab.graphdata` / `TensorGraphLab.graphfromdata` 保存和恢复带版本号的纯结构记录。
-
-## 着色
+Use an existing graph as a node in another graph. Each occurrence of a subgraph has its own internal indices, so repeated names do not create unintended connections:
 
 ```julia
-bindings = coloring(G, A=>a, B=>b)
-bindings = coloring(G, :A=>a, :B=>b)
+@graph network[left; right] := G[left; middle] * G'[middle; right]
+@assert evaluate(network, bindings) ≈ result * result'
+
+showgraph(network)          # Expand all subgraphs.
+showgraph(network; depth=0) # Keep direct subgraphs.
+```
+
+`showgraph` prints a fully expanded `@graph` expression by default; `depth=1` expands one layer. Partially expanded output uses generated names such as `subgraph1`, which require separate bindings before the expression can be executed. Graphs do not retain the caller's variable name: the displayed output name defaults to `G`; set `name=:network` to change it. Ordinary REPL display shows a compact summary.
+
+Nodes support structural `adjoint`, `permute`, and `transpose` views. Entire graphs support adjoint. `substitute(G, A => B, B => A)` swaps basic colors simultaneously, preserving existing views; inserted replacements are not processed again.
+
+## Binding tensors
+
+These three forms are equivalent:
+
+```julia
+bindings = coloring(G, A => a, B => b)
+bindings = coloring(G, :A => a, :B => b)
 bindings = @coloring G A=a B=b
 ```
 
-`@coloring` 左侧按字面解释为图的基本 color label，右侧在调用者作用域求值一次。支持 `begin` 中逐行写赋值。子图内的基本 color 也一起绑定，同名节点复用同一个 tensor。
+In `@coloring`, left-hand names are literal color labels; each right-hand expression is evaluated once in the caller's scope. Assignments can also appear in a `begin ... end` block. Bindings cover basic colors throughout nested graphs. Repeated colors share a tensor, and different colors may refer to the same tensor.
 
-一次必须提供全部 color，不能重复或多给。绑定键可以是基本 TensorNode 或 Symbol，值只支持 AbstractTensorMap。检查腿数、可表示的对偶方向和内部连线空间；空间匹配调用 TensorOperations 的 `checkcontractible`。不同 color 可以绑定同一 tensor。
+Provide every color exactly once, with no missing or extra bindings. Values must be `AbstractTensorMap` objects. Construction checks ranks, representable dual directions, and connected spaces. To check again explicitly, call `TensorGraphLab.validate(G, bindings)`; it returns `nothing` on success and throws on failure.
 
-`TensorGraphLab.Coloring` 保存原 tensor 的引用，不复制数据。`bindings[:A]` 或 `bindings[A]` 读取绑定。修改 tensor 的数值会影响下一次 evaluation；给变量 `a` 重新赋值不会自动更换已有绑定，需要重新 `coloring`。`TensorGraphLab.validate(G,bindings)` 可以重新检查，成功返回 `nothing`，失败抛出异常。
+Bindings retain references to the original tensors. Mutating their entries affects subsequent evaluations. Reassigning the Julia variable `a` does not update an existing binding; call `coloring` again to bind the new tensor. Access a bound tensor with `bindings[:A]` or `bindings[A]`.
 
-实数 CartesianSpace 无法编码形式对偶，因此不拿其已消去的方向否定图上的箭头，仍然检查腿数和空间连接。对其他空间检查基本节点方向。节点视图通过 TensorKit 实际操作检查；permute/transpose 可能为验证生成临时 tensor，但不会保存在 Coloring 中。
-
-## 执行
+## Tensor and planar execution
 
 ```julia
-result = evaluate(G,bindings)                 # Use @tensor.
-result = evaluate(G,bindings; method=:planar) # Use @planar.
+result = evaluate(G, bindings)                 # Use @tensor.
+result = evaluate(G, bindings; method=:planar) # Use @planar.
 ```
 
-完全展开嵌套图，保留 occurrence 和端口顺序，重放节点视图，然后生成上游宏接受的收缩表达式。执行代码中使用内部名字，因此普通 color `τ` 不会被误当成上游特殊 braiding 语法。显式 BraidingTensor 可以像其他 TensorMap 一样绑定。
+Evaluation expands subgraphs, applies recorded node views, and passes a contraction expression to the upstream macro. TensorKit determines whether the symmetry, permutation, and contraction are supported. Execution does not automatically switch from `tensor` to `planar`. For explicit braiding, bind a `BraidingTensor` to a basic node; a color named `τ` is still treated as an ordinary label.
 
-`@graph z = ...` 的结果是数值 scalar；`@graph Z[] := ...` 的结果是零腿 TensorMap。是否允许特定对称性、排列或 planar contraction 由 TensorKit 判断，错误会向上传递。默认不会自动从 tensor 切换到 planar。
+The two closed-graph forms preserve distinct output intents:
 
-每次执行都重新检查绑定。缓存只存生成的函数，键包含展开后的**有序**结构与执行方法，不使用忽略因子顺序的图相等性，也不保存 tensor 或数值结果。更换 tensor 的尺寸和类型无需改图，Julia 对实际参数类型编译；`TensorGraphLab.clear_evaluation_cache!()` 清空函数查找缓存。缓存条目会随不同结构增长，清空缓存不保证立即回收 Julia 已生成的方法或机器码。
+```julia
+@graph z = A[i; j] * A'[j; i]
+@graph Z[] := A[i; j] * A'[j; i]
 
-本轮复用上游默认收缩顺序，不提供额外 optimizer/backend 配置，也没有修改上游 `@tensor`、`@planar` 宏。现在的 `showgraph` 接口及默认摘要显示保持不变。
+closed_bindings = coloring(z, A => a)
+value = evaluate(z, closed_bindings)  # A numerical scalar.
+tensor = evaluate(Z, closed_bindings) # A zero-leg TensorMap.
 
-## 源码与验证
+@assert value ≈ norm(a)^2
+@assert scalar(tensor) ≈ value
+```
 
-- [TensorGraphLab.jl](src/TensorGraphLab.jl)：唯一模块入口，按职责显式列出公共 export。
-- [nodes.jl](src/nodes.jl)：基本节点、方向和结构视图。
-- [graphs.jl](src/graphs.jl)：图结构、检查、展开与 adjoint。
-- [identity.jl](src/identity.jl)、[substitution.jl](src/substitution.jl)、[persistence.jl](src/persistence.jl)：比较、替换和结构记录。
-- [notation.jl](src/notation.jl)、[display.jl](src/display.jl)：宏解析与表达式显示。
-- [coloring.jl](src/coloring.jl)、[execution.jl](src/execution.jl)：绑定检查、上游收缩与缓存。
+Bindings are checked on every evaluation. The cache stores generated contraction functions, never tensors or numerical results. `TensorGraphLab.clear_evaluation_cache!()` clears the function lookup cache; it does not guarantee immediate reclamation of Julia's generated methods or machine code.
 
-原四个包的测试已一起迁入 `test/`。运行时只直接依赖 TensorKit 和 TensorOperations；解析复用了 TensorOperations 内部接口，因此目前固定其版本为 5.8.2。
+## Runnable examples
 
-运行任一例子准备依赖后，在本包目录运行：
+Open any example in VS Code and run the entire file with **Julia: Execute File in REPL**. Each script activates the package environment relative to its own location, so examples work independently of the current directory and can run in any order. The first run downloads and precompiles dependencies.
+
+| Example | Demonstrates |
+|---|---|
+| [01_matrix_chain.jl](examples/01_matrix_chain.jl) | From graph notation to matrix multiplication |
+| [02_nested_transfer.jl](examples/02_nested_transfer.jl) | Nested four-leg transfers and reuse with updated data |
+| [03_views_and_replacement.jl](examples/03_views_and_replacement.jl) | Adjoint, transpose, and simultaneous replacement |
+| [04_closed_graph.jl](examples/04_closed_graph.jl) | Scalar and zero-leg TensorMap outputs |
+| [05_planar_symmetry.jl](examples/05_planar_symmetry.jl) | Planar contraction with Fibonacci symmetry |
+
+## Structural conventions and scope
+
+`TensorNode{M,N}` records M output ports and N input ports. Nodes can also be defined without a numerical tensor:
+
+```julia
+Q = TensorNode(:Q, 2, 2, (false, false, true, true))
+```
+
+Direction flags are ordered output-first, then input, in the all-outgoing convention: output flags follow codomain duality, while input flags negate domain duality. Real Cartesian spaces erase numerical dual distinctions, but graph ports retain formal arrows. Extracting a node from an already transformed real tensor cannot recover direction history that its numerical representation has lost.
+
+`@graph` currently supports indexed nodes, views, subgraphs, and their products, without linear combinations or numerical coefficients. Each object's output/input partition must match. Internal indices occur twice and join opposite formal arrows; boundary indices occur once.
+
+Graph equality (`==`) ignores dummy-index names, nesting, and factor order, while preserving colors, port order, connectivity, and output intent. It does not establish categorical identities or braid equivalence. Execution and its cache retain factor order to preserve planar semantics.
+
+| Qualified interface | Purpose |
+|---|---|
+| `TensorGraphLab.expand(G; depth=nothing)` | Expand subgraphs to a chosen depth |
+| `TensorGraphLab.graph_expr(G)` | Obtain a display `Expr` without executing it |
+| `TensorGraphLab.base_node(node)` | Retrieve the basic node underlying a view |
+| `TensorGraphLab.graphdata(G)` | Export a versioned, data-only structural record |
+| `TensorGraphLab.graphfromdata(data)` | Validate and restore a structural record |
+
+Validating node views may create temporary tensors through TensorKit; these are not retained in the bindings. The package uses upstream default contraction ordering and currently exposes no additional optimizer/backend configuration. Its direct runtime dependencies are TensorKit and TensorOperations. TensorOperations is pinned to 5.8.2 because its internal parsing interfaces are used.
+
+## Development and tests
+
+Run from the repository directory:
 
 ```sh
-julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
-不依赖 ExperimentLab；未增加形式腿对象。包名、UUID 和版本保持不变。旧拆分仓库保留作历史记录，新代码只需 `using TensorGraphLab`。
+The [main module](src/TensorGraphLab.jl) lists exports explicitly. Implementation is split by responsibility into [nodes](src/nodes.jl), [graphs](src/graphs.jl), [identity](src/identity.jl), [substitution](src/substitution.jl), [persistence](src/persistence.jl), [notation](src/notation.jl), [display](src/display.jl), [coloring](src/coloring.jl), and [execution](src/execution.jl).
 
-合并后节点和图类型归属于 TensorGraphLab。旧会话中若已加载拆分包，请重启 Julia 再使用；迁移已有图应使用 `TensorGraphLab.graphdata` / `TensorGraphLab.graphfromdata` 的结构记录，不直接混用旧包对象。
+If migrating from the earlier split packages, restart Julia and load only TensorGraphLab. Transfer existing graphs through `graphdata` / `graphfromdata` structural records rather than mixing objects owned by the old modules.
