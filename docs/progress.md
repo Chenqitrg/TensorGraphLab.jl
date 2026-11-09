@@ -12,3 +12,16 @@
 - Fresh-context final review found no actionable correctness issues. Four independent probes covered single-node self-traces and disconnected scalar products in both tensor and planar modes. New source totals 161 lines; examples use @graph and remain independently runnable. No new package commit or push.
 
 - User approved the package and explicitly requested a local commit. No version bump, push or PR.
+
+## Consolidation into one package
+
+- User requested merging the four reviewed packages and readable main exports. Implemented on codex/consolidate-packages, preserving TensorGraphLab UUID/version and leaving the three old repositories untouched.
+- Nodes, graph core and notation now live in separate source files inside the single TensorGraphLab module. Removed all three sibling dependencies and their example setup paths. Replaced dynamic @eval exports with explicit grouped exports; the exported-name set is unchanged (33 names including the module itself).
+- Migrated all behavioral suites. Direct tests and full Pkg.test passed 315/315; package tests used --compiled-modules=no and -O0. Logs: /tmp/graph-unified-tests.log and /tmp/graph-unified-pkgtest.log.
+- All five examples passed independently from an isolated fresh copy containing only this package, without a Manifest or sibling packages. All five also passed twice in one Julia session. Logs: /tmp/graph-unified-isolated.log and /tmp/graph-unified-repeat.log.
+- README documents single-package setup, explicit source organization and the module/type ownership change. Restart Julia after loading the old split packages; transfer old graphs via graphdata/graphfromdata rather than mixing old type identities.
+- Independent final review found no actionable integration issues: copied sources/assertions preserved, no helper collisions or sibling dependencies, explicit exports/include order correct. No commit, push or PR for this consolidation yet.
+
+- User approved narrowing exports to TensorNode, TensorGraph, @graph, @coloring, coloring, evaluate, showgraph and substitute. Advanced interfaces remain available by qualification or explicit import; tests import them explicitly and README reflects this intentional API-surface change.
+
+- After export reduction, all 315 tests and five examples passed again. User approved committing consolidation and the reduced export list together. No version bump or push.

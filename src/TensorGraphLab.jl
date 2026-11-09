@@ -1,12 +1,23 @@
 module TensorGraphLab
-using TensorKit, TensorGraphNotation
+
+using TensorKit
 import TensorOperations
+
 const TO = TensorOperations
-for name in names(TensorGraphNotation)
-    name === :TensorGraphNotation && continue
-    @eval export $name
-end
-export Coloring, coloring, @coloring, validate, evaluate, clear_evaluation_cache!
+
+# Everyday graph construction, binding and evaluation.
+export TensorNode, TensorGraph
+export @graph, @coloring, coloring, evaluate
+export showgraph, substitute
+
+include("nodes.jl")
+include("graphs.jl")
+include("identity.jl")
+include("substitution.jl")
+include("persistence.jl")
+include("notation.jl")
+include("display.jl")
 include("coloring.jl")
 include("execution.jl")
+
 end

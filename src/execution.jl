@@ -13,10 +13,10 @@ function _compile(flat,method)
     operands = map(_ -> gensym(:operand),occurrences(flat))
     terms = map(occurrences(flat),operands) do term,operand
         m = numout(term.object)
-        TensorGraphNotation._tensorref(operand,term.indices[1:m],term.indices[m+1:end])
+        _tensorref(operand,term.indices[1:m],term.indices[m+1:end])
     end
     output = gensym(:result)
-    lhs = isscalar(flat) ? output : TensorGraphNotation._tensorref(output,boundary(flat)...)
+    lhs = isscalar(flat) ? output : _tensorref(output,boundary(flat)...)
     rhs = length(terms) == 1 ? only(terms) : Expr(:call,:*,terms...)
     assignment = Expr(isscalar(flat) ? :(=) : :(:=),lhs,rhs)
     macroref = GlobalRef(TensorKit,method === :tensor ? Symbol("@tensor") : Symbol("@planar"))
