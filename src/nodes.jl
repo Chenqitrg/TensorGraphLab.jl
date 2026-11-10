@@ -2,6 +2,7 @@
 abstract type AbstractTensorNode{M,N} end
 
 """
+    TensorNode(label::Symbol, (nout, nin))
     TensorNode(label::Symbol, nout, nin, duals::Tuple)
     TensorNode(label::Symbol, tensor::AbstractTensorMap)
 
@@ -9,6 +10,10 @@ An immutable color label and ordered, oriented ports. `duals` lists output ports
 followed by input ports in the all-outgoing convention. `true` denotes a formally
 dual leg. No tensor, concrete space, dimension or sector data is retained.
 The type parameters of `TensorNode{M,N}` count output and input ports separately.
+
+The rank-pair constructor assumes nondual codomain and domain spaces: output
+flags are `false` and input flags are `true` in the all-outgoing convention.
+Both counts must be nonnegative; zero-leg partitions are supported.
 
 Extraction uses codomain flags followed by **negated domain flags**. Unlike
 `isdual(space(t,i))`, this preserves formal input duals for real Cartesian spaces.
@@ -22,6 +27,12 @@ struct TensorNode{M,N} <: AbstractTensorNode{M,N}
     function TensorNode(label::Symbol, outduals::NTuple{M,Bool}, induals::NTuple{N,Bool}) where {M,N}
         return new{M,N}(label, outduals, induals)
     end
+end
+
+function TensorNode(label::Symbol, ranks::Tuple{Int,Int})
+    nout, nin = ranks
+    nout >= 0 && nin >= 0 || throw(ArgumentError("port counts must be nonnegative"))
+    return TensorNode(label, ntuple(_ -> false, nout), ntuple(_ -> true, nin))
 end
 
 function TensorNode(label::Symbol, nout::Int, nin::Int, duals::NTuple{L,Bool}) where {L}

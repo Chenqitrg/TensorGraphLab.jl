@@ -10,6 +10,21 @@ function check_interface(node, t)
 end
 
 @testset "Tensor nodes" begin
+    @testset "Default directions from an output/input rank pair" begin
+        A = TensorNode(:A, (2, 1))
+        @test A isa TensorNode{2,1}
+        @test label(A) == :A
+        @test dualflags(A) == (false, false, true)
+        @test dualflags(A') == (false, true, true)
+        @test dualflags(transpose(A)) == (true, false, false)
+        @test !has_payload(A)
+        @test TensorNode(:Z, (0, 0)) isa TensorNode{0,0}
+        @test dualflags(TensorNode(:ket, (2, 0))) == (false, false)
+        @test dualflags(TensorNode(:bra, (0, 2))) == (true, true)
+        @test_throws ArgumentError TensorNode(:A, (-1, 2))
+        @test_throws ArgumentError TensorNode(:A, (2, -1))
+    end
+
     @testset "Typed views, immediate parents and exact identities" begin
         A = TensorNode(:A, 2, 1, (false, true, true))
         P = permute(A, ((3,), (1, 2)))

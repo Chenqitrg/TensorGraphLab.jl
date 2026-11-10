@@ -7,7 +7,7 @@ using TensorGraphLab: isscalar, expand, canonical_key, graphdata, graphfromdata,
 using TensorGraphLab: Coloring, validate, clear_evaluation_cache!
 
 suites = ("nodes", "graphs", "identity", "substitution", "persistence",
-          "notation", "display", "coloring", "evaluation")
+          "notation", "display", "coloring", "spaces", "evaluation")
 for file in (isempty(ARGS) ? suites : ARGS)
     include(file * ".jl")
 end

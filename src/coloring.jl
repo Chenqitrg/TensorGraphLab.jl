@@ -23,24 +23,30 @@ _bind(n::AdjointNode,c) = adjoint(_bind(parent(n),c))
 _bind(n::PermutedNode,c) = permute(_bind(parent(n),c),n.indices)
 _bind(n::TransposedNode,c) = transpose(_bind(parent(n),c),n.indices)
 
-function _prepared(g,c::Coloring)
+function _prepared_spaces(g,c::Coloring)
     nodes = _colors(g)
     Set(keys(c.tensors)) == Set(keys(nodes)) ||
         throw(ArgumentError("provide exactly one binding for every basic color"))
     foreach(name -> _check_binding(nodes[name],c[name]), keys(nodes))
     flat = expand(g)
-    tensors = map(t -> _bind(t.object,c),occurrences(flat))
-    length(tensors) > 1 && TensorKit.check_spacetype(tensors...)
+    spaces = map(t -> _bindspace(t.object,c),occurrences(flat))
+    length(spaces) > 1 && TensorKit.check_spacetype(spaces...)
     ports = Dict{Int,Tuple{Int,Int}}()
     for (v,term) in enumerate(occurrences(flat)), (p,index) in enumerate(term.indices)
         if haskey(ports,index)
             w,q = ports[index]
-            TO.checkcontractible(tensors[w],q,false,tensors[v],p,false,index)
+            left, right = dual(spaces[w][q]), spaces[v][p]
+            left == right || throw(SpaceMismatch("incompatible spaces for $index: $left ≠ $right"))
         else
             ports[index] = (v,p)
         end
     end
-    return flat,tensors
+    return flat,spaces,ports
+end
+
+function _prepared(g,c::Coloring)
+    flat, _, _ = _prepared_spaces(g,c)
+    return flat, map(t -> _bind(t.object,c),occurrences(flat))
 end
 
 """
@@ -48,7 +54,7 @@ end
 
 Bind all basic colors at once, using basic nodes or Symbol labels as keys.
 Validate ranks, representable dual directions and connected TensorKit spaces.
-Views are checked through TensorKit; no transformed tensor is retained.
+Views are checked through TensorKit spaces without transforming tensor data.
 """
 function coloring(g::TensorGraph, pairs::Pair...)
     nodes = _colors(g)
@@ -70,7 +76,7 @@ end
 
 """Recheck all bindings and connected spaces without performing a contraction."""
 function validate(g::TensorGraph,c::Coloring)
-    _prepared(g,c)
+    _prepared_spaces(g,c)
     return nothing
 end
 

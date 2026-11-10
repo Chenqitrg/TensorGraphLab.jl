@@ -126,8 +126,14 @@ Open any example in VS Code and run the entire file with **Julia: Execute File i
 `TensorNode{M,N}` records M output ports and N input ports. Nodes can also be defined without a numerical tensor:
 
 ```julia
-Q = TensorNode(:Q, 2, 2, (false, false, true, true))
+Q = TensorNode(:Q, (2, 2))
 ```
+
+The pair gives `(nout, nin)`. By default, codomain and domain spaces are
+nondual: output flags are `false`, and input flags are `true` in the
+all-outgoing convention. Counts may be zero but cannot be negative.
+For other directions, specify the flags explicitly, for example
+`TensorNode(:Q, 2, 2, (false, true, false, true))`.
 
 Direction flags are ordered output-first, then input, in the all-outgoing convention: output flags follow codomain duality, while input flags negate domain duality. Real Cartesian spaces erase numerical dual distinctions, but graph ports retain formal arrows. Extracting a node from an already transformed real tensor cannot recover direction history that its numerical representation has lost.
 
@@ -143,7 +149,12 @@ Graph equality (`==`) ignores dummy-index names, nesting, and factor order, whil
 | `TensorGraphLab.graphdata(G)` | Export a versioned, data-only structural record |
 | `TensorGraphLab.graphfromdata(data)` | Validate and restore a structural record |
 
-Validating node views may create temporary tensors through TensorKit; these are not retained in the bindings. The package uses upstream default contraction ordering and currently exposes no additional optimizer/backend configuration. Its direct runtime dependencies are TensorKit and TensorOperations. TensorOperations is pinned to 5.8.2 because its internal parsing interfaces are used.
+`space(G, bindings)` returns the TensorKit map space in the graph's boundary order.
+Both this query and binding validation use space metadata only, including for
+node views. They do not contract or transform tensor data. Numerical evaluation
+applies the recorded views through TensorKit.
+
+The package uses upstream default contraction ordering and currently exposes no additional optimizer/backend configuration. Its direct runtime dependencies are TensorKit and TensorOperations. TensorOperations is pinned to 5.8.2 because its internal parsing interfaces are used.
 
 ## Development and tests
 
@@ -153,6 +164,6 @@ Run from the repository directory:
 julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
-The [main module](src/TensorGraphLab.jl) lists exports explicitly. Implementation is split by responsibility into [nodes](src/nodes.jl), [graphs](src/graphs.jl), [identity](src/identity.jl), [substitution](src/substitution.jl), [persistence](src/persistence.jl), [notation](src/notation.jl), [display](src/display.jl), [coloring](src/coloring.jl), and [execution](src/execution.jl).
+The [main module](src/TensorGraphLab.jl) lists exports explicitly. Implementation is split by responsibility into [nodes](src/nodes.jl), [graphs](src/graphs.jl), [identity](src/identity.jl), [substitution](src/substitution.jl), [persistence](src/persistence.jl), [notation](src/notation.jl), [display](src/display.jl), [coloring](src/coloring.jl), [spaces](src/spaces.jl), and [execution](src/execution.jl).
 
 If migrating from the earlier split packages, restart Julia and load only TensorGraphLab. Transfer existing graphs through `graphdata` / `graphfromdata` structural records rather than mixing objects owned by the old modules.

@@ -18,6 +18,7 @@ include("persistence.jl")
 include("notation.jl")
 include("display.jl")
 include("coloring.jl")
+include("spaces.jl")
 include("execution.jl")
 
 end
