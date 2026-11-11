@@ -1,5 +1,5 @@
 const IndexLabel = Union{Int,Symbol}
-_check_labels(labels) = all(x -> x isa IndexLabel, labels) ||
+_check_labels(labels::Tuple) = all(x -> x isa IndexLabel, labels) ||
     throw(ArgumentError("index labels must be Int or Symbol"))
 
 """One occurrence of a node or child graph, with indices ordered as output then input."""
@@ -48,9 +48,9 @@ isscalar(g::TensorGraph) = g.scalar
 TensorKit.numout(::TensorGraph{M,N}) where {M,N} = M
 TensorKit.numin(::TensorGraph{M,N}) where {M,N} = N
 TensorKit.numind(::TensorGraph{M,N}) where {M,N} = M + N
-_boundary(g) = (g.outputs..., g.inputs...)
+_boundary(g::TensorGraph) = (g.outputs..., g.inputs...)
 
-function _portmap(g)
+function _portmap(g::TensorGraph)
     ports = Dict{IndexLabel,Vector{Tuple{Int,Int}}}()
     for (v, term) in enumerate(g.terms), (p, index) in enumerate(term.indices)
         push!(get!(ports, index, Tuple{Int,Int}[]), (v,p))
@@ -66,7 +66,7 @@ function dualflags(g::TensorGraph)
     end
 end
 
-function _validate(g)
+function _validate(g::TensorGraph)
     external = _boundary(g)
     length(unique(external)) == length(external) ||
         throw(ArgumentError("boundary indices must be unique"))
@@ -86,16 +86,16 @@ function _validate(g)
     return g
 end
 
-function _base_nodes(g)
-    nodes = Dict{Symbol,TensorNode}()
-    function visit(object)
+function _base_nodes(g::TensorGraph)
+    nodes = Dict{Symbol,AbstractTensorNode}()
+    function visit(object::Union{TensorGraph,AbstractTensorNode})
         if object isa TensorGraph
             foreach(t -> visit(t.object), object.terms)
         else
             node = base_node(object)
             node isa IdentityWire && return
             name = label(node)
-            haskey(nodes,name) && nodes[name] != node &&
+            haskey(nodes,name) && !_same_color(nodes[name],node) &&
                 throw(ArgumentError("conflicting base-node signatures for color $name"))
             nodes[name] = node
         end
@@ -104,14 +104,15 @@ function _base_nodes(g)
     return nodes
 end
 
-function _occurrence(object, indices)
+function _occurrence(object::Union{AbstractTensorNode,TensorGraph}, indices::Tuple)
     outputs = ntuple(i -> indices[i], numout(object))
     inputs = ntuple(i -> indices[numout(object)+i], numin(object))
     return Occurrence(object, outputs, inputs)
 end
 
-function _flatten!(terms, g, names, nextindex, depth)
-    rename(index) = get!(names, index) do
+function _flatten!(terms::Vector{Occurrence}, g::TensorGraph, names::Dict{IndexLabel,Int},
+                   nextindex::Ref{Int}, depth::Union{Nothing,Int})
+    rename(index::IndexLabel) = get!(names, index) do
         nextindex[] += 1
     end
     for term in g.terms
@@ -132,7 +133,7 @@ function expand(g::TensorGraph; depth::Union{Int,Nothing}=nothing)
     return first(_expand_with_names(g, depth))
 end
 
-function _expand_with_names(g, depth)
+function _expand_with_names(g::TensorGraph, depth::Union{Int,Nothing})
     names = Dict{IndexLabel,Int}(zip(_boundary(g), 1:numind(g)))
     terms = _flatten!(Occurrence[], g, names, Ref(numind(g)), depth)
     flat = TensorGraph(Tuple(terms), Tuple(1:numout(g)), Tuple(numout(g)+1:numind(g)); scalar=g.scalar)

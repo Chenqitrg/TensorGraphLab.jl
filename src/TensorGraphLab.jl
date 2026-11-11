@@ -10,6 +10,7 @@ export TubeGraph, @tube, open_graph
 export @coloring, coloring, evaluate
 
 include("graphs/nodes.jl")
+include("graphs/indexed_color.jl")
 include("graphs/graphs.jl")
 include("graphs/wires.jl")
 include("graphs/identity.jl")
@@ -26,6 +27,7 @@ include("tubes/notation.jl")
 
 include("evaluation/coloring.jl")
 include("evaluation/spaces.jl")
+include("evaluation/planning.jl")
 include("evaluation/execution.jl")
 
 end

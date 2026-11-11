@@ -17,7 +17,7 @@ Occurrence(::typeof(TensorKit.id), out::Tuple, inp::Tuple) = Occurrence(Identity
 
 # Suppress degree-two identities on a closed seam to recover the original
 # lattice vertices. An isolated identity needs an external space specification.
-function _suppress_wires(g::TensorGraph)
+function _suppress_wires(g::TensorGraph, renames::AbstractDict{IndexLabel,IndexLabel}=Dict{IndexLabel,IndexLabel}())
     any(t -> base_node(t.object) isa IdentityWire, occurrences(g)) || return g
     external = Set(_boundary(g))
     neighbors = Dict{IndexLabel,Vector{IndexLabel}}()
@@ -31,7 +31,6 @@ function _suppress_wires(g::TensorGraph)
             push!(terms, t)
         end
     end
-    renames = Dict{IndexLabel,IndexLabel}()
     for index in keys(neighbors)
         haskey(renames, index) && continue
         chain = IndexLabel[index]

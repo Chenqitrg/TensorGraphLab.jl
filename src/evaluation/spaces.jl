@@ -1,4 +1,9 @@
 # Apply recorded node views to spaces only, never to tensor coefficients.
+function _bindspace(n::IndexedColor, c::Coloring)
+    _check_binding(n, c[label(n)])
+    return space(_bind(n,c))
+end
+
 _bindspace(n::TensorNode, c::Coloring) = space(c[label(n)])
 _bindspace(n::AdjointNode, c::Coloring) = adjoint(_bindspace(parent(n), c))
 _bindspace(n::PermutedNode, c::Coloring) = permute(_bindspace(parent(n), c), n.indices)

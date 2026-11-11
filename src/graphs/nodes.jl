@@ -83,7 +83,8 @@ base_node(node::TensorNode) = node
 base_node(node::NodeView) = base_node(parent(node))
 
 """Return the color label, unchanged by structural transformations."""
-label(node::AbstractTensorNode) = base_node(node).label
+label(node::NodeView) = label(parent(node))
+label(node::TensorNode) = node.label
 
 TensorKit.numout(::AbstractTensorNode{M,N}) where {M,N} = M
 TensorKit.numin(::AbstractTensorNode{M,N}) where {M,N} = N

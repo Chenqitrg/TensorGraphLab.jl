@@ -9,8 +9,10 @@ _colors(g::TensorGraph) = _base_nodes(g)
 
 _colors(t::TubeGraph) = _colors(open_graph(t))
 
-function _check_binding(node, tensor)
-    tensor isa AbstractTensorMap || throw(ArgumentError("color $(label(node)) requires an AbstractTensorMap"))
+_check_binding(node::TensorNode, value) =
+    throw(ArgumentError("color $(label(node)) requires an AbstractTensorMap"))
+
+function _check_binding(node::TensorNode, tensor::AbstractTensorMap)
     (numout(node),numin(node)) == (numout(tensor),numin(tensor)) ||
         throw(ArgumentError("port counts do not match color $(label(node))"))
     # Cartesian spaces erase duality; formal graph arrows remain independent.
@@ -20,17 +22,26 @@ function _check_binding(node, tensor)
     end
 end
 
-_bind(n::TensorNode,c) = c[label(n)]
-_bind(n::AdjointNode,c) = adjoint(_bind(parent(n),c))
-_bind(n::PermutedNode,c) = permute(_bind(parent(n),c),n.indices)
-_bind(n::TransposedNode,c) = transpose(_bind(parent(n),c),n.indices)
+# A family can be any collection supporting integer indexing.
+function _check_binding(n::IndexedColor, family)
+    _check_binding(n.node, family[n.slot])
+end
 
-function _prepared_spaces(g,c::Coloring)
+_bind(n::IndexedColor, c::Coloring) = c[label(n)][n.slot]
+_bind(n::TensorNode, c::Coloring) = c[label(n)]
+_bind(n::AdjointNode, c::Coloring) = adjoint(_bind(parent(n),c))
+_bind(n::PermutedNode, c::Coloring) = permute(_bind(parent(n),c),n.indices)
+_bind(n::TransposedNode, c::Coloring) = transpose(_bind(parent(n),c),n.indices)
+
+function _prepared_spaces(g::TensorGraph, c::Coloring)
+    return _prepared_spaces(g,c,_suppress_wires(expand(g)))
+end
+
+function _prepared_spaces(g::TensorGraph, c::Coloring, flat::TensorGraph)
     nodes = _colors(g)
     Set(keys(c.tensors)) == Set(keys(nodes)) ||
         throw(ArgumentError("provide exactly one binding for every basic color"))
     foreach(name -> _check_binding(nodes[name],c[name]), keys(nodes))
-    flat = _suppress_wires(expand(g))
     spaces = map(t -> _bindspace(t.object,c),occurrences(flat))
     length(spaces) > 1 && TensorKit.check_spacetype(spaces...)
     ports = Dict{Int,Tuple{Int,Int}}()
@@ -44,11 +55,6 @@ function _prepared_spaces(g,c::Coloring)
         end
     end
     return flat,spaces,ports
-end
-
-function _prepared(g,c::Coloring)
-    flat, _, _ = _prepared_spaces(g,c)
-    return flat, map(t -> _bind(t.object,c),occurrences(flat))
 end
 
 """

@@ -78,9 +78,16 @@ bindings = coloring(G, :A => a, :B => b)
 bindings = @coloring G A=a B=b
 ```
 
-In `@coloring`, left-hand names are literal color labels; each right-hand expression is evaluated once in the caller's scope. Assignments can also appear in a `begin ... end` block. Bindings cover basic colors throughout nested graphs. Repeated colors share a tensor, and different colors may refer to the same tensor.
+In `@coloring`, left-hand names are literal color labels; each right-hand expression is evaluated once in the caller's scope. Assignments can also appear in a `begin ... end` block. Bindings cover basic colors throughout nested graphs. Repeated occurrences of an ordinary node share a tensor, and different colors may refer to the same tensor.
 
-Provide every color exactly once, with no missing or extra bindings. Values must be `AbstractTensorMap` objects. Construction checks ranks, representable dual directions, and connected spaces. To check again explicitly, call `TensorGraphLab.validate(G, bindings)`; it returns `nothing` on success and throws on failure.
+Provide every color exactly once, with no missing or extra bindings. For an ordinary node, the value is an `AbstractTensorMap`. Construction checks ranks, representable dual directions, and connected spaces. To check again explicitly, call `TensorGraphLab.validate(G, bindings)`; it returns `nothing` on success and throws on failure.
+
+An indexed color selects one tensor from a family under the same label.
+For example, when a graph contains `TensorGraphLab.IndexedColor(node, 2)`
+with `node = TensorNode(:gamma, (2, 2))`, the binding `:gamma => (hV, hW)` gives that
+occurrence `hW`. Both slots print as `gamma`. Each occurrence checks its own
+port directions and connected spaces. The caller supplies the tensors in slot
+order.
 
 Bindings retain references to the original tensors. Mutating their entries affects subsequent evaluations. Reassigning the Julia variable `a` does not update an existing binding; call `coloring` again to bind the new tensor. Access a bound tensor with `bindings[:A]` or `bindings[A]`.
 
@@ -164,7 +171,13 @@ Both this query and binding validation use space metadata only, including for
 node views. They do not contract or transform tensor data. Numerical evaluation
 applies the recorded views through TensorKit.
 
-The package uses upstream default contraction ordering and currently exposes no additional optimizer/backend configuration. Its direct runtime dependencies are TensorKit and TensorOperations. TensorOperations is pinned to 5.8.2 because its internal parsing interfaces are used.
+Use `opt=true` in `evaluate` to request TensorOperations contraction-order optimization.
+For a fixed-size index, e.g. `evaluate(G, c; method=:planar, small_indices=(:x,))`,
+the planner counts `x` as O(1) and all other indices as O(χ). Root-level index
+names refer to the graph before expansion. When the unrestricted optimum
+violates planar order, the planner tries planar joins using TensorKit's cyclic
+index rules. TensorKit checks the resulting expression. The default uses
+the upstream contraction order. Its direct runtime dependencies are TensorKit and TensorOperations. TensorOperations is pinned to 5.8.2 because its internal parsing interfaces are used.
 
 ## Development and tests
 

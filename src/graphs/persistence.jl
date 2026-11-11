@@ -23,6 +23,8 @@ function _read_node(definition)
         name isa Symbol && nout isa Int && nin isa Int && duals isa Tuple{Vararg{Bool}} ||
             throw(ArgumentError("invalid basic-node metadata"))
         return TensorNode(name,nout,nin,duals)
+    elseif kind === :indexed && length(definition) == 3
+        return IndexedColor(_read_node(definition[2]), definition[3])
     elseif kind === :adjoint
         length(definition) == 2 || throw(ArgumentError("invalid adjoint record"))
         return adjoint(_read_node(definition[2]))

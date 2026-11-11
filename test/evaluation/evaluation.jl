@@ -102,3 +102,22 @@ end
     @graph crossing[l1 l2;r1 r2] := τ[l1 l2;r1 r2]
     @test evaluate(crossing,coloring(crossing,τ=>braid);method=:planar) ≈ braid
 end
+
+@testset "Contraction cost hints and indexed colors" begin
+    node = TensorNode(:gamma, (1, 1))
+    P, Q = (TensorGraphLab.IndexedColor(node, i) for i in (1, 2))
+    @graph G[l;r] := P[l;i] * id[i;j] * Q[j;r]
+    p = randn(ComplexF64, ℂ^2 ← ℂ^1)
+    q = randn(ComplexF64, ℂ^1 ← ℂ^3)
+    c = coloring(G, :gamma => (p, q))
+    @test graphfromdata(graphdata(G)) == G
+    @test count("gamma[", sprint(showgraph,G)) == 2
+    for method in (:planar,:tensor)
+        @test TensorGraphLab.plan_evaluation(G; method, opt=true)(c) ≈ p*q
+        @test evaluate(G,c; method, opt=true) ≈ p*q
+        @test evaluate(G,c; method, small_indices=(:i,)) ≈ p*q
+        @test TensorGraphLab.plan_evaluation(G;method,small_indices=(:j,)).executor ===
+              TensorGraphLab.plan_evaluation(G;method,small_indices=(:i,)).executor
+    end
+    @test_throws ArgumentError evaluate(G,c; small_indices=(:unknown,))
+end
