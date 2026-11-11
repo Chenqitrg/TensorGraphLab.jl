@@ -33,15 +33,21 @@ function _fresh_name(prefix, used)
     return name
 end
 
-function _display_parts(g::TensorGraph; name::Symbol=:G, depth::Union{Int,Nothing}=nothing)
+function _display_parts(g::TensorGraph; name::Symbol=:G, depth::Union{Int,Nothing}=nothing, keep=())
     _binding_name(name)
     isnothing(depth) || depth >= 0 || throw(ArgumentError("display depth must be nonnegative"))
     expanded = depth !== 0 && any(t -> t.object isa TensorGraph,occurrences(g))
-    visible = expanded ? expand(g;depth) : g
+    visible, names = expanded ? _expand_with_names(g, depth) : (g, nothing)
     original_boundary = (boundary(g)[1]...,boundary(g)[2]...)
     visible_boundary = (boundary(visible)[1]...,boundary(visible)[2]...)
     indices = Dict{Any,Any}(zip(visible_boundary,original_boundary))
     used_indices = Set{Union{Int,Symbol}}(original_boundary)
+    if expanded
+        for index in keep
+            indices[names[index]] = index
+            push!(used_indices, index)
+        end
+    end
     index_name(index) = expanded ? get!(indices,index) do
         _fresh_name("i",used_indices)
     end : index

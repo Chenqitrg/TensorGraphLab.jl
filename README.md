@@ -42,12 +42,12 @@ result = evaluate(G, bindings)
 - `coloring` binds basic nodes to actual `AbstractTensorMap` objects and checks their ports and connected spaces.
 - `evaluate` returns the contraction result, using the upstream `@tensor` macro by default.
 
-Only eight everyday entry points are exported:
+The package exports these everyday entry points:
 
 ```text
-TensorNode, TensorGraph
-@graph, @coloring
-coloring, evaluate, showgraph, substitute
+TensorNode, TensorGraph, TubeGraph
+@graph, @tube, @coloring
+coloring, evaluate, showgraph, substitute, isplanar, open_graph
 ```
 
 Access other interfaces through `TensorGraphLab.` or import them explicitly with `using TensorGraphLab: ...`. Rank and transformation functions such as `numout`, `numin`, and `permute` remain available through TensorKit.
@@ -83,6 +83,14 @@ In `@coloring`, left-hand names are literal color labels; each right-hand expres
 Provide every color exactly once, with no missing or extra bindings. Values must be `AbstractTensorMap` objects. Construction checks ranks, representable dual directions, and connected spaces. To check again explicitly, call `TensorGraphLab.validate(G, bindings)`; it returns `nothing` on success and throws on failure.
 
 Bindings retain references to the original tensors. Mutating their entries affects subsequent evaluations. Reassigning the Julia variable `a` does not update an existing binding; call `coloring` again to bind the new tensor. Access a bound tensor with `bindings[:A]` or `bindings[A]`.
+
+For a `TubeGraph`, the same binding syntax checks the open patch and each pair of spaces joined by annular closure. For example, given a two-output, two-input tensor `a` with matching spaces on the wire labeled `x`:
+
+```julia
+A = TensorNode(:A, a)
+@tube annular=(x,) T[u; d] := A[x u; d x]
+bindings = @coloring T A=a
+```
 
 ## Tensor and planar execution
 
@@ -164,6 +172,18 @@ Run from the repository directory:
 julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
 ```
 
-The [main module](src/TensorGraphLab.jl) lists exports explicitly. Implementation is split by responsibility into [nodes](src/nodes.jl), [graphs](src/graphs.jl), [identity](src/identity.jl), [substitution](src/substitution.jl), [persistence](src/persistence.jl), [notation](src/notation.jl), [display](src/display.jl), [coloring](src/coloring.jl), [spaces](src/spaces.jl), and [execution](src/execution.jl).
+The [package entry point](src/TensorGraphLab.jl) lists the exports and includes for three areas. The test directories follow the same layout.
+
+| Source | Responsibility | Tests |
+|---|---|---|
+| [graphs](src/graphs) | Nodes, ordinary graph construction and notation, structural operations, and planarity | [graph tests](test/graphs) |
+| [tubes](src/tubes) | Tube construction, annular boundaries, and tube notation | [tube tests](test/tubes) |
+| [evaluation](src/evaluation) | Bindings, space checks, and numerical contraction | [evaluation tests](test/evaluation) |
+
+To review `@tube`, start with the [annular boundary example](examples/06_annular_boundary.jl). Follow the [macro](src/tubes/notation.jl) into the [TubeGraph constructor](src/tubes/tube.jl) and the [boundary checks](src/tubes/boundary.jl). Run just the tube tests with:
+
+```sh
+julia --project=. test/runtests.jl tubes/
+```
 
 If migrating from the earlier split packages, restart Julia and load only TensorGraphLab. Transfer existing graphs through `graphdata` / `graphfromdata` structural records rather than mixing objects owned by the old modules.

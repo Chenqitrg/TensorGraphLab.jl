@@ -5,20 +5,25 @@ import TensorOperations
 
 const TO = TensorOperations
 
-# Everyday graph construction, binding and evaluation.
-export TensorNode, TensorGraph
-export @graph, @coloring, coloring, evaluate
-export showgraph, substitute
+export TensorNode, TensorGraph, @graph, showgraph, substitute, isplanar
+export TubeGraph, @tube, open_graph
+export @coloring, coloring, evaluate
 
-include("nodes.jl")
-include("graphs.jl")
-include("identity.jl")
-include("substitution.jl")
-include("persistence.jl")
-include("notation.jl")
-include("display.jl")
-include("coloring.jl")
-include("spaces.jl")
-include("execution.jl")
+include("graphs/nodes.jl")
+include("graphs/graphs.jl")
+include("graphs/identity.jl")
+include("graphs/substitution.jl")
+include("graphs/persistence.jl")
+include("graphs/notation.jl")
+include("graphs/display.jl")
+include("graphs/planarity.jl")
+
+include("tubes/boundary.jl")
+include("tubes/tube.jl")
+include("tubes/notation.jl")
+
+include("evaluation/coloring.jl")
+include("evaluation/spaces.jl")
+include("evaluation/execution.jl")
 
 end

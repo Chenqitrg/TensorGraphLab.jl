@@ -6,8 +6,24 @@ using TensorGraphLab: label, dualflags, base_node, Occurrence, occurrences, boun
 using TensorGraphLab: isscalar, expand, canonical_key, graphdata, graphfromdata, graph_expr
 using TensorGraphLab: Coloring, validate, clear_evaluation_cache!
 
-suites = ("nodes", "graphs", "identity", "substitution", "persistence",
-          "notation", "display", "coloring", "spaces", "evaluation")
-for file in (isempty(ARGS) ? suites : ARGS)
-    include(file * ".jl")
+include("support/metadata_tensor.jl")
+
+suites = (
+    graphs = ("nodes", "graphs", "identity", "substitution", "persistence", "notation", "display", "planarity"),
+    tubes = ("tube", "tube_coloring"),
+    evaluation = ("coloring", "spaces", "evaluation"),
+)
+# Select a directory with a trailing slash or a single suite by its short name.
+selectors = String[]
+for (group, files) in pairs(suites)
+    folder = string(group, "/")
+    push!(selectors, folder, files...)
+end
+for arg in ARGS
+    arg in selectors || throw(ArgumentError("unknown test selection: $arg"))
+end
+for (group, files) in pairs(suites), file in files
+    if isempty(ARGS) || string(group, "/") in ARGS || file in ARGS
+        include(joinpath(string(group), file * ".jl"))
+    end
 end

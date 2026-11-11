@@ -128,9 +128,14 @@ end
 """Expand child graphs to `depth` layers (default: all), renaming boundary and private indices hygienically."""
 function expand(g::TensorGraph; depth::Union{Int,Nothing}=nothing)
     isnothing(depth) || depth >= 0 || throw(ArgumentError("expansion depth must be nonnegative"))
+    return first(_expand_with_names(g, depth))
+end
+
+function _expand_with_names(g, depth)
     names = Dict{IndexLabel,Int}(zip(_boundary(g), 1:numind(g)))
     terms = _flatten!(Occurrence[], g, names, Ref(numind(g)), depth)
-    return TensorGraph(Tuple(terms), Tuple(1:numout(g)), Tuple(numout(g)+1:numind(g)); scalar=g.scalar)
+    flat = TensorGraph(Tuple(terms), Tuple(1:numout(g)), Tuple(numout(g)+1:numind(g)); scalar=g.scalar)
+    return flat, names
 end
 
 function Base.adjoint(g::TensorGraph)

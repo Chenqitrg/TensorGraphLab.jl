@@ -10,9 +10,9 @@ function _product_terms!(terms, ex)
     return terms
 end
 
-function _graph_macro(ex)
+function _graph_macro(wrap, ex)
     if ex isa Expr && ex.head === :block
-        return Expr(:block, (item isa LineNumberNode ? item : _graph_macro(item) for item in ex.args)...)
+        return Expr(:block, (item isa LineNumberNode ? item : _graph_macro(wrap, item) for item in ex.args)...)
     end
     ex isa Expr && (TO.isdefinition(ex) || ex.head === :(=)) ||
         throw(ArgumentError("use @graph G[outputs; inputs] := ... or @graph scalar_name = ..."))
@@ -42,7 +42,7 @@ function _graph_macro(ex)
     end
     termtuple = Expr(:tuple,terms...)
     construct = :($TensorGraph($termtuple, $(QuoteNode(outputs)), $(QuoteNode(inputs)); scalar=$scalar))
-    scoped = Expr(:let,Expr(:block,bindings...),construct)
+    scoped = Expr(:let,Expr(:block,bindings...),wrap(construct))
     return :($(esc(name)) = $scoped)
 end
 
@@ -56,5 +56,5 @@ each distinct object expression is evaluated once. Output/input partitions must
 match the captured objects. Bare-name = records scalar output intent.
 """
 macro graph(ex)
-    return _graph_macro(ex)
+    return _graph_macro(identity, ex)
 end

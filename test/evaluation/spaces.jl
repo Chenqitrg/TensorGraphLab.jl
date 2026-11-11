@@ -1,9 +1,3 @@
-# This tensor has no numerical storage: static queries must only inspect its space.
-struct MetadataTensor{S,M,N} <: AbstractTensorMap{Float64,S,M,N}
-    tensor_space::TensorMapSpace{S,M,N}
-end
-TensorKit.space(t::MetadataTensor) = t.tensor_space
-
 @testset "Bound graph spaces without tensor data" begin
     a = MetadataTensor(ℂ^2 ⊗ (ℂ^3)' ← ℂ^4 ⊗ (ℂ^5)')
     A = TensorNode(:A, a)

@@ -5,7 +5,9 @@ end
 Base.getindex(c::Coloring, name::Symbol) = getproperty(c.tensors,name)
 Base.getindex(c::Coloring, node::TensorNode) = c[label(node)]
 
-_colors(g) = Dict(label(base_node(t.object)) => base_node(t.object) for t in occurrences(expand(g)))
+_colors(g::TensorGraph) = Dict(label(base_node(t.object)) => base_node(t.object) for t in occurrences(expand(g)))
+
+_colors(t::TubeGraph) = _colors(open_graph(t))
 
 function _check_binding(node, tensor)
     tensor isa AbstractTensorMap || throw(ArgumentError("color $(label(node)) requires an AbstractTensorMap"))
@@ -54,9 +56,10 @@ end
 
 Bind all basic colors at once, using basic nodes or Symbol labels as keys.
 Validate ranks, representable dual directions and connected TensorKit spaces.
+Tube bindings also check each pair of spaces identified by annular closure.
 Views are checked through TensorKit spaces without transforming tensor data.
 """
-function coloring(g::TensorGraph, pairs::Pair...)
+function coloring(g::Union{TensorGraph,TubeGraph}, pairs::Pair...)
     nodes = _colors(g)
     labels = Symbol[]
     values = Any[]
@@ -77,6 +80,16 @@ end
 """Recheck all bindings and connected spaces without performing a contraction."""
 function validate(g::TensorGraph,c::Coloring)
     _prepared_spaces(g,c)
+    return nothing
+end
+
+function validate(t::TubeGraph, c::Coloring)
+    patch_space = space(open_graph(t), c)
+    for (i, label) in enumerate(t.annular)
+        left = codomain(patch_space)[i]
+        right = domain(patch_space)[numin(t) + i]
+        left == right || throw(SpaceMismatch("incompatible spaces for annular index $label: $left ≠ $right"))
+    end
     return nothing
 end
 

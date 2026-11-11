@@ -9,7 +9,7 @@ function clear_evaluation_cache!()
     return nothing
 end
 
-function _compile(flat,method)
+function _compile(flat,method; tree=nothing)
     operands = map(_ -> gensym(:operand),occurrences(flat))
     terms = map(occurrences(flat),operands) do term,operand
         m = numout(term.object)
@@ -17,7 +17,9 @@ function _compile(flat,method)
     end
     output = gensym(:result)
     lhs = isscalar(flat) ? output : _tensorref(output,boundary(flat)...)
-    rhs = length(terms) == 1 ? only(terms) : Expr(:call,:*,terms...)
+    expression(i::Integer) = terms[i]
+    expression(pair::Tuple) = Expr(:call, :*, expression(pair[1]), expression(pair[2]))
+    rhs = isnothing(tree) ? (length(terms) == 1 ? only(terms) : Expr(:call,:*,terms...)) : expression(tree)
     assignment = Expr(isscalar(flat) ? :(=) : :(:=),lhs,rhs)
     macroref = GlobalRef(TensorKit,method === :tensor ? Symbol("@tensor") : Symbol("@planar"))
     contraction = Expr(:macrocall,macroref,LineNumberNode(0),assignment)
