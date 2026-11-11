@@ -53,7 +53,7 @@ function _display_parts(g::TensorGraph; name::Symbol=:G, depth::Union{Int,Nothin
     end : index
     used_objects = Set{Symbol}([name])
     for term in occurrences(expand(g))
-        push!(used_objects,label(term.object))
+        base_node(term.object) isa IdentityWire || push!(used_objects,label(term.object))
     end
     children = Pair{Symbol,TensorGraph}[]
     child_names = Dict{TensorGraph,Symbol}()

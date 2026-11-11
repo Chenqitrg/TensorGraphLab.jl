@@ -1,7 +1,7 @@
 # TensorKit reads an oriented tensor boundary as outputs followed by reversed
 # inputs. Its planar complement test joins two such contours along their shared
 # indices. Work on indices only, so no coloring or generated code is needed.
-function _planar_contour(accept, g::TensorGraph)
+function _planar_contour(accept, g::TensorGraph; cap=false)
     flat = expand(g)
     rings = Vector{Int}[]
     for term in occurrences(flat)
@@ -10,6 +10,9 @@ function _planar_contour(accept, g::TensorGraph)
         ring = TensorKit.planar_unique2(ring)
         allunique(ring) || return nothing
         push!(rings, ring)
+    end
+    if cap && numind(flat) > 0
+        push!(rings, [flat.inputs..., reverse(flat.outputs)...])
     end
     labels = _boundary(g)
     return _join_contours(rings) do ring
@@ -46,9 +49,7 @@ end
 
 """Check planar contractions with the declared cyclic boundary, using TensorKit's index rules."""
 function isplanar(g::TensorGraph)
-    expected = [g.outputs..., reverse(g.inputs)...]
-    result = _planar_contour(g) do ring
-        (isempty(ring) || TensorKit.iscyclicpermutation(ring, expected)) ? true : nothing
-    end
-    return !isnothing(result)
+    # Cap the specified boundary with opposite orientation. The cap fixes the
+    # relative placement of disconnected wires without enumerating placements.
+    return _planar_contour(r -> isempty(r) ? true : nothing, g; cap=true) === true
 end

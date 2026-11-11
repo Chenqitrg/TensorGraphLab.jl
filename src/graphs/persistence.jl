@@ -15,7 +15,9 @@ end
 function _read_node(definition)
     definition isa Tuple && !isempty(definition) || throw(ArgumentError("invalid node definition"))
     kind = first(definition)
-    if kind === :node
+    if kind === :wire && length(definition) == 2 && definition[2] isa Bool
+        return IdentityWire(definition[2])
+    elseif kind === :node
         length(definition) == 5 || throw(ArgumentError("invalid basic-node record"))
         _, name, nout, nin, duals = definition
         name isa Symbol && nout isa Int && nin isa Int && duals isa Tuple{Vararg{Bool}} ||

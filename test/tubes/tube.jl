@@ -58,3 +58,16 @@ end
     @test occursin("@tube annular=(a,)", printed)
     @test Core.eval(@__MODULE__, :(let M = $M; $(Meta.parse(printed)); end)) == chain
 end
+
+@testset "Single identity segment across the diagonal seam" begin
+    A, B = TensorNode(:A, (2,2)), TensorNode(:B, (2,2))
+    @tube annular=(x, r) t[o1 o2; p1 p2] := A[o2 r; y x] * B[x y; p1 p2] * id[o1; r]
+    @graph expected[o1 o2; p1 p2] := A[o2 o1; y x] * B[x y; p1 p2]
+    @test TensorGraphLab.closed_graph(t) == expected
+    @test TubeGraph(t.annular, open_graph(t)) == t
+    @test isplanar(open_graph(t))
+    @test graphfromdata(graphdata(open_graph(t))) == open_graph(t)
+    printed = Meta.parse(sprint(showgraph, t))
+    @test Core.eval(@__MODULE__, :(let A = $A, B = $B; $printed; end)) == t
+    @test_throws ArgumentError TubeGraph((:a, :a), open_graph(t))
+end

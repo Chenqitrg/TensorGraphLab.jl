@@ -93,6 +93,7 @@ function _base_nodes(g)
             foreach(t -> visit(t.object), object.terms)
         else
             node = base_node(object)
+            node isa IdentityWire && return
             name = label(node)
             haskey(nodes,name) && nodes[name] != node &&
                 throw(ArgumentError("conflicting base-node signatures for color $name"))

@@ -5,7 +5,7 @@ end
 Base.getindex(c::Coloring, name::Symbol) = getproperty(c.tensors,name)
 Base.getindex(c::Coloring, node::TensorNode) = c[label(node)]
 
-_colors(g::TensorGraph) = Dict(label(base_node(t.object)) => base_node(t.object) for t in occurrences(expand(g)))
+_colors(g::TensorGraph) = _base_nodes(g)
 
 _colors(t::TubeGraph) = _colors(open_graph(t))
 
@@ -30,7 +30,7 @@ function _prepared_spaces(g,c::Coloring)
     Set(keys(c.tensors)) == Set(keys(nodes)) ||
         throw(ArgumentError("provide exactly one binding for every basic color"))
     foreach(name -> _check_binding(nodes[name],c[name]), keys(nodes))
-    flat = expand(g)
+    flat = _suppress_wires(expand(g))
     spaces = map(t -> _bindspace(t.object,c),occurrences(flat))
     length(spaces) > 1 && TensorKit.check_spacetype(spaces...)
     ports = Dict{Int,Tuple{Int,Int}}()
@@ -84,12 +84,7 @@ function validate(g::TensorGraph,c::Coloring)
 end
 
 function validate(t::TubeGraph, c::Coloring)
-    patch_space = space(open_graph(t), c)
-    for (i, label) in enumerate(t.annular)
-        left = codomain(patch_space)[i]
-        right = domain(patch_space)[numin(t) + i]
-        left == right || throw(SpaceMismatch("incompatible spaces for annular index $label: $left ≠ $right"))
-    end
+    validate(closed_graph(t), c)
     return nothing
 end
 

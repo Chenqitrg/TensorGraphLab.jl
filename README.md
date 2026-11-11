@@ -92,6 +92,8 @@ A = TensorNode(:A, a)
 bindings = @coloring T A=a
 ```
 
+A single `id[o; r]` in tube notation carries a wire from `r` to `o`. Use `id` from TensorKit. The wire has no color binding. `open_graph(T)` retains it in the planar patch. `TensorGraphLab.closed_graph(T)` glues the annular pairs and suppresses identity segments along the resulting bonds.
+
 ## Tensor and planar execution
 
 ```julia

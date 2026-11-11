@@ -23,3 +23,6 @@ function TensorKit.space(g::TensorGraph, c::Coloring)
     dom = ProductSpace{S}(map(i -> dual(boundary_space(i)), inputs))
     return cod ← dom
 end
+
+"""Return the space of the physical boundaries after gluing the annular pairs."""
+TensorKit.space(t::TubeGraph, c::Coloring) = space(closed_graph(t), c)

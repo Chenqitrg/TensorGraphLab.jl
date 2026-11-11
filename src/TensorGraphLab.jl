@@ -11,6 +11,7 @@ export @coloring, coloring, evaluate
 
 include("graphs/nodes.jl")
 include("graphs/graphs.jl")
+include("graphs/wires.jl")
 include("graphs/identity.jl")
 include("graphs/substitution.jl")
 include("graphs/persistence.jl")
@@ -20,6 +21,7 @@ include("graphs/planarity.jl")
 
 include("tubes/boundary.jl")
 include("tubes/tube.jl")
+include("tubes/closure.jl")
 include("tubes/notation.jl")
 
 include("evaluation/coloring.jl")

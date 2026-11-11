@@ -7,6 +7,7 @@
     @test bindings[:A] === a
     @test (@coloring t A=a)[A] === a
     @test validate(t, bindings) === nothing
+    @test space(t, bindings) == (U ← D)
     @test_throws ArgumentError coloring(t)
     @test_throws ArgumentError coloring(t, :A => a, :A => a)
 
@@ -14,6 +15,7 @@
     swapped = MetadataTensor(V ⊗ W ⊗ U ← D ⊗ W ⊗ V)
     patch_bindings = coloring(open_graph(t), A => swapped)
     @test_throws SpaceMismatch validate(t, patch_bindings)
+    @test_throws SpaceMismatch space(t, patch_bindings)
     @test_throws SpaceMismatch coloring(t, A => swapped)
 
     @graph child[o1 o2 o3; i1 i2 i3] := A[o1 o2 o3; i1 i2 i3]
