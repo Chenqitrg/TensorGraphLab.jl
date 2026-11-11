@@ -82,7 +82,9 @@ In `@coloring`, left-hand names are literal color labels; each right-hand expres
 
 Provide every color exactly once, with no missing or extra bindings. For an ordinary node, the value is an `AbstractTensorMap`. Construction checks ranks, representable dual directions, and connected spaces. To check again explicitly, call `TensorGraphLab.validate(G, bindings)`; it returns `nothing` on success and throws on failure.
 
-An indexed color selects one tensor from a family under the same label.
+The sector type is shared by every bound tensor and can be read with
+`sectortype(bindings)` or `sectortype(typeof(bindings))`.
+An indexed color selects one tensor from a tuple under the same label.
 For example, when a graph contains `TensorGraphLab.IndexedColor(node, 2)`
 with `node = TensorNode(:gamma, (2, 2))`, the binding `:gamma => (hV, hW)` gives that
 occurrence `hW`. Both slots print as `gamma`. Each occurrence checks its own

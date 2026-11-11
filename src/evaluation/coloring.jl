@@ -1,7 +1,31 @@
-"""An immutable set of color bindings; tensors are borrowed, not copied."""
-struct Coloring{T<:NamedTuple}
+const TensorFamily = Tuple{Vararg{AbstractTensorMap}}
+const TensorBinding = Union{AbstractTensorMap,TensorFamily}
+const TensorBindings = NamedTuple{names,<:Tuple{Vararg{TensorBinding}}} where {names}
+
+"""
+    Coloring(bindings)
+
+Each named color binds a TensorKit map or an ordered tuple of maps for indexed
+occurrences. All maps have the same sector type, available as `sectortype(c)`
+or `sectortype(typeof(c))`. An empty coloring has sector type `Union{}`.
+"""
+struct Coloring{I<:Sector,T<:TensorBindings}
     tensors::T
+    function Coloring(bindings::T) where {T<:TensorBindings}
+        I = foldl(_binding_sector, values(bindings); init=Union{})
+        return new{I,T}(bindings)
+    end
 end
+
+TensorKit.sectortype(::Type{<:Coloring{I}}) where {I} = I
+
+function _binding_sector(I::Type, tensor::AbstractTensorMap)
+    J = sectortype(tensor)
+    I === Union{} || I === J || throw(SpaceMismatch("color bindings mix sector types $I and $J"))
+    return J
+end
+_binding_sector(I::Type, family::TensorFamily) = foldl(_binding_sector, family; init=I)
+
 Base.getindex(c::Coloring, name::Symbol) = getproperty(c.tensors,name)
 Base.getindex(c::Coloring, node::TensorNode) = c[label(node)]
 
@@ -22,8 +46,8 @@ function _check_binding(node::TensorNode, tensor::AbstractTensorMap)
     end
 end
 
-# A family can be any collection supporting integer indexing.
-function _check_binding(n::IndexedColor, family)
+_check_binding(n::IndexedColor, value) = throw(ArgumentError("indexed color $(label(n)) requires a tensor family"))
+function _check_binding(n::IndexedColor, family::TensorFamily)
     _check_binding(n.node, family[n.slot])
 end
 
@@ -75,8 +99,11 @@ function coloring(g::Union{TensorGraph,TubeGraph}, pairs::Pair...)
         haskey(nodes,name) || throw(ArgumentError("unknown color $name"))
         name in labels && throw(ArgumentError("duplicate binding for color $name"))
         key isa TensorNode && key != nodes[name] && throw(ArgumentError("node signature does not match color $name"))
+        node = nodes[name]
+        binding = node isa IndexedColor && tensor isa AbstractVector ? Tuple(tensor) : tensor
+        binding isa TensorBinding || throw(ArgumentError("color $name requires a TensorMap or a tuple of TensorMaps"))
         push!(labels,name)
-        push!(values,tensor)
+        push!(values,binding)
     end
     result = Coloring(NamedTuple{Tuple(labels)}(Tuple(values)))
     validate(g,result)

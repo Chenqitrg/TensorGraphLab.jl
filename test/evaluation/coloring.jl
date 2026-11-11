@@ -4,6 +4,15 @@
     A, B = TensorNode(:A,a), TensorNode(:B,b)
     @graph G[l;r] := A[l;i] * B[i;r]
     bindings = coloring(G,A=>a,B=>b)
+    @test (@inferred sectortype(typeof(bindings))) === Trivial
+    V = Z2Space(0 => 1, 1 => 1)
+    h = randn(ComplexF64, V ← V)
+    @test sectortype(Coloring((gamma=(h, h),))) === Z2Irrep
+    @test_throws SpaceMismatch Coloring((A=h, gamma=(h, a)))
+    @test_throws TypeError Coloring{Trivial,typeof((A=1,))}
+    @test_throws MethodError Coloring((A=1,))
+    @test_throws MethodError Coloring((A=a, gamma=identity))
+    @test_throws MethodError Coloring((gamma=(h, 1),))
     @test bindings[:A] === a
     @test bindings[B] === b
     @test validate(G,bindings) === nothing
