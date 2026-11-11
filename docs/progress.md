@@ -25,3 +25,16 @@
 - User approved narrowing exports to TensorNode, TensorGraph, @graph, @coloring, coloring, evaluate, showgraph and substitute. Advanced interfaces remain available by qualification or explicit import; tests import them explicitly and README reflects this intentional API-surface change.
 
 - After export reduction, all 315 tests and five examples passed again. User approved committing consolidation and the reduced export list together. No version bump or push.
+
+## Deferred graph and tube interfaces (2026-11-11)
+
+The working tree supports constructing, opening and coloring a single tube, including single-wire `id[o; i]` segments. The following interfaces were agreed and deferred.
+
+- **Composition.** Support `G * H` for ordinary graphs, `U * T` for tubes, and both mixed products. The right operand acts first. Connect its outputs to the left operand's inputs in order. Check counts and formal directions at construction, then check concrete spaces during coloring. In a mixed product the ordinary graph must be planar and has empty annular closure. Preserve both tubes' annular pairings in bottom-to-top order and rename layer-local indices to avoid collisions. A review case is `diagonal_2() * diagonal_2()` with both identity segments and both layers' pairings visible.
+- **Nested tube notation.** Allow existing tubes on the right of `@tube` under the same composition rules. Each child occupies a whole circumference. Reject bypass wires, reordered interfaces and reuse of a child's physical legs as annular indices.
+- **Dagger.** Implement `adjoint(T)` using the tube-category dagger, including the duals and bends on annular legs. Check involution and reversal of composition. See [the paper, p. 17](https://arxiv.org/pdf/2610.08787#page=17).
+- **Explicit wire spaces.** Allow `coloring(G; spaces=(a=V,))` for both graph types, including annular labels. One specified endpoint determines the other end of an identity. Check all space declarations against each other and against bound tensors. Cover a pure open identity and the zero-external-leg tube `@tube annular=(a,) T[] := id[a; a]`.
+
+**Open decision.** The diagram determines the common annular order. For a disconnected open patch admitting several distinct valid orders, the current search takes the first. Whether to reject that ambiguity remains undecided.
+
+Earlier ordinary-graph evaluation ideas also remain deferred: `evaluate!(dest, G, bindings)` and user-selected contraction order at evaluation time.
