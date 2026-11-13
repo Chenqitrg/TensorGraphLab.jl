@@ -1,12 +1,8 @@
 # TensorGraphLab
 
-Define reusable tensor networks with TensorKit-style index notation, bind numerical tensors, and evaluate contractions.
+TensorGraphLab lets you **postpone evaluation of a tensor network**. Define its connectivity with `@graph` before the numerical tensors exist. When you need the result, bind tensors to the nodes with `coloring` and call `evaluate` to perform the contraction using TensorKit and TensorOperations.
 
-```text
-@graph  →  graph structure  →  coloring  →  evaluate
-```
-
-A graph stores nodes, port directions, and connections—not tensor data. Reuse the same graph with different tensors, and delegate numerical contractions to TensorKit / TensorOperations using either `tensor` or `planar` execution.
+You can also [define your own lazy contraction type](#define-your-own-lazy-contraction-type). Store a reusable evaluation plan in the type and choose which operation triggers the contraction.
 
 ## Installation
 
@@ -26,18 +22,18 @@ Define a graph connecting two nodes, then check that its evaluation agrees with 
 ```julia
 using TensorKit, TensorGraphLab
 
+A, B = TensorNode(:A, (1, 1)), TensorNode(:B, (1, 1))
+@graph G[left; right] := A[left; bond] * B[bond; right]
+
 a = randn(ComplexF64, ℂ^2 ← ℂ^3)
 b = randn(ComplexF64, ℂ^3 ← ℂ^4)
-A, B = TensorNode(:A, a), TensorNode(:B, b)
-
-@graph G[left; right] := A[left; bond] * B[bond; right]
 bindings = coloring(G, A => a, B => b)
 result = evaluate(G, bindings)
 
 @assert result ≈ a * b
 ```
 
-- `TensorNode(:A, a)` extracts a color label, output/input ranks, and formal dual directions. It retains no numerical data, dimensions, or sectors from `a`.
+- `TensorNode(:A, (1, 1))` declares one output and one input. If a representative tensor already exists, `TensorNode(:A, a)` takes its ranks and formal dual directions from `a`.
 - In `@graph`, outputs appear before the semicolon and inputs after it. The repeated index `bond` connects the nodes; `left` and `right` form the graph boundary.
 - `coloring` binds basic nodes to actual `AbstractTensorMap` objects and checks their ports and connected spaces.
 - `evaluate` returns the contraction result, using the upstream `@tensor` macro by default.
@@ -51,6 +47,25 @@ coloring, evaluate, showgraph, substitute, isplanar, open_graph
 ```
 
 Access other interfaces through `TensorGraphLab.` or import them explicitly with `using TensorGraphLab: ...`. Rank and transformation functions such as `numout`, `numin`, and `permute` remain available through TensorKit.
+
+## Define your own lazy contraction type
+
+Suppose you want to pass the product defined by `G` to another routine and let that routine decide when to compute it. Using `G`, `a`, and `b` from above, define a callable Julia type that holds the contraction plan and the bound operands:
+
+```julia
+struct LazyContraction{P,B}
+    plan::P
+    bindings::B
+end
+
+(x::LazyContraction)() = x.plan(x.bindings)
+
+plan = TensorGraphLab.plan_evaluation(G)
+product = LazyContraction(plan, coloring(G, A => a, B => b))
+@assert product() ≈ a * b
+```
+
+`plan_evaluation(G)` prepares the contraction using only the graph. Constructing `product` checks and stores references to the operands. Calling `product()` runs the contraction with their current values. A second `LazyContraction` can share `plan` and supply its own bindings.
 
 ## Reuse, nesting, and display
 
